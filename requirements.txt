@@ -1,0 +1,13 @@
+youtube_transcript_api
+python-dotenv
+pathlib
+streamlit
+google-generativeai
+python-dotenv
+langchain
+PyPDF2
+chromadb
+faiss-cpu
+langchain_google-genai
+langchain_community
+sentence-transformers
