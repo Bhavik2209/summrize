@@ -9,8 +9,10 @@ from youtube_transcript_api.formatters import TextFormatter
 import google.generativeai as genai
 
 
+# Load the API key from Streamlit secrets
+GOOGLE_API_KEY = st.secrets["google"]["GOOGLE_API_KEY"]
 
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+genai.configure(api_key=GOOGLE_API_KEY)
 
 generation_config = {
     "temperature": 1,
