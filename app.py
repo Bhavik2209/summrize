@@ -2,8 +2,8 @@ import os
 import re
 import textwrap
 import requests
+import streamlit as st
 from dotenv import load_dotenv
-from django.shortcuts import render
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api.formatters import TextFormatter
 import google.generativeai as genai
@@ -89,64 +89,41 @@ def get_gemini_response(prompt):
 
     return "Failed to generate a response."
 
-import html
-
-import re
-
 def format_text_to_html(text):
-    # Remove code block markers and clean up extra spaces
     text = text.strip().replace('```', '')
     text = text.strip().replace('>', '')
     text = text.strip().replace('html','')
     text = text.strip().replace('* * *','')
     text = text.strip().replace('* *','')
     text = text.strip().replace('*','')
-
     return text
 
+# Streamlit app
+st.title("YouTube Video Analyzer")
 
+# Input YouTube URL
+youtube_url = st.text_input("Enter YouTube URL")
 
+if youtube_url:
+    video_id = get_video_id(youtube_url)
+    title = get_video_title(video_id)
+    thumbnail = get_video_thumbnail(video_id)
+    transcripts = download_transcript(video_id)
 
-def index(request):
-    context = {"show_analytics": True}
+    st.write(f"### Video Title: {title}")
+    st.image(thumbnail, width=600)
+    
+    if transcripts:
+        transcript = transcripts.get('en', '')  # Assuming English transcript is available
+        
 
-    if request.method == "POST" and "url" in request.POST:
-        youtube_url = request.POST.get('url')
-        video_id = get_video_id(youtube_url)
-        title = get_video_title(video_id)
-        thumbnail = get_video_thumbnail(video_id)
-        transcript = download_transcript(video_id)
-
-        context.update({
-            "video_id": video_id,
-            "video_title": title,
-            "video_thumbnail": thumbnail,
-            "transcript": transcript,
-        })
-
-    return render(request, 'index.html', context)
-
-def ask_question(request):
-    context = {"show_analytics": True}
-
-    if request.method == "POST":
-        video_id = request.POST.get('video_id')
-        transcript = request.POST.get('transcript')
-        user_input = request.POST.get('user_input')
-
-        prompt = [
-            f"the video title is {video_id} and {transcript}, this is a transcript of the youtube video and you have to understand it and based on this transcript answer the question and if user ask generalized questions answer the user's general question of the transcript topic and if the question is out of context then just write not available. Answer in depth. Here is the question: {user_input}"
-        ]
-
-        response_text = get_gemini_response(prompt)
-       
-
-        context.update({
-            "response_text": response_text,
-            "video_id": video_id,
-            "transcript": transcript,
-            "video_title": get_video_title(video_id),
-            "video_thumbnail": get_video_thumbnail(video_id),
-        })
-
-    return render(request, 'index.html', context)
+        # Ask a question
+        user_input = st.text_input("Ask a question about the video")
+        if user_input:
+            prompt = f"The video title is '{title}' and this is the transcript of the YouTube video: {transcript}. Based on this transcript, answer the following question in depth. If the question is out of context but if user ask generalized questions related to transcript then give the answer , just write 'not available'. Here is the question: {user_input}"
+            response_text = get_gemini_response(prompt)
+            formatted_response = format_text_to_html(response_text)
+            st.write("### Response:")
+            st.write(formatted_response)
+    else:
+        st.write("No transcript available for this video.")
