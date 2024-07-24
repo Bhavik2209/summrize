@@ -9,3 +9,4 @@ django
 transformers
 torch
 textwrap3
+accelerate
