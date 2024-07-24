@@ -8,7 +8,7 @@ from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api.formatters import TextFormatter
 import google.generativeai as genai
 
-load_dotenv()
+
 
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
