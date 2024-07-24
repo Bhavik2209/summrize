@@ -6,3 +6,6 @@ youtube_transcript_api
 langchain_community
 gunicorn
 django
+transformers
+torch
+textwrap3
