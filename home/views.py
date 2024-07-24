@@ -6,22 +6,22 @@ from dotenv import load_dotenv
 from django.shortcuts import render
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api.formatters import TextFormatter
-import google.generativeai as genai
+import transformers
+import torch
 
 load_dotenv()
 
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+# Define the Llama model pipeline
+model_id = "unsloth/llama-3-8b-Instruct-bnb-4bit"
 
-generation_config = {
-    "temperature": 1,
-    "top_p": 0.95,
-    "top_k": 64,
-    "max_output_tokens": 8192,
-    "response_mime_type": "text/plain",
-}
-model = genai.GenerativeModel(
-    model_name="gemini-pro",
-    generation_config=generation_config,
+pipeline = transformers.pipeline(
+    "text-generation",
+    model=model_id,
+    model_kwargs={
+        "torch_dtype": torch.float16,
+        "quantization_config": {"load_in_4bit": True},
+        "low_cpu_mem_usage": True,
+    },
 )
 
 def get_video_id(youtube_url):
@@ -65,33 +65,22 @@ def to_markdown(text):
     text = text.replace('•', '  *')
     return textwrap.indent(text, '> ', predicate=lambda _: True)
 
-def get_gemini_response(prompt):
-    response = model.generate_content(prompt)
-    try:
-        if response.parts:
-            for part in response.parts:
-                if hasattr(part, 'text'):
-                    return to_markdown(part.text)
-                else:
-                    return "No text found in part"
-        else:
-            return "No parts found in the response."
-    except AttributeError as e:
-        return f"Error accessing response parts: {e}"
+def get_llama_response(prompt):
+    terminators = [
+        pipeline.tokenizer.eos_token_id,
+        pipeline.tokenizer.convert_tokens_to_ids("")
+    ]
 
-    try:
-        if hasattr(response, 'text'):
-            return to_markdown(response.text)
-        else:
-            return "No direct text found in the response."
-    except ValueError as e:
-        return f"Error accessing response text: {e}"
+    outputs = pipeline(
+        prompt,
+        max_new_tokens=256,
+        eos_token_id=terminators,
+        do_sample=True,
+        temperature=0.6,
+        top_p=0.9,
+    )
 
-    return "Failed to generate a response."
-
-import html
-
-import re
+    return outputs[0]["generated_text"][len(prompt):]
 
 def format_text_to_html(text):
     # Remove code block markers and clean up extra spaces
@@ -102,12 +91,7 @@ def format_text_to_html(text):
     text = text.strip().replace('* *','')
     text = text.strip().replace('*','')
 
-    
-
     return text
-
-
-
 
 def index(request):
     context = {"show_analytics": True}
@@ -140,8 +124,7 @@ def ask_question(request):
             f"the video title is {video_id} and {transcript}, this is a transcript of the youtube video and you have to understand it and based on this transcript answer the question and if user ask generalized questions answer the user's general question of the transcript topic and if the question is out of context then just write not available. Answer in depth. Here is the question: {user_input}"
         ]
 
-        response_text = get_gemini_response(prompt)
-       
+        response_text = get_llama_response(prompt)
 
         context.update({
             "response_text": response_text,
